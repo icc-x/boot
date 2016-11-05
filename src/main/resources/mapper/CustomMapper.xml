@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.xin.wang.mapper.CustomMapper" >
+
+    <resultMap id="purchaseList" type="com.xin.wang.domin.PurchaseBillPo">
+        <id column="PKID" jdbcType="DECIMAL" property="pkId" />
+        <result column="PKID" jdbcType="DECIMAL" property="billId" />
+        <result column="ORDER_CODE" jdbcType="VARCHAR" property="billCode" />
+        <result column="BILL_TYPE" jdbcType="DECIMAL" property="billType" />
+        <result column="ACTUAL_B1_TOTAL_AMOUNT" jdbcType="DECIMAL" property="actualPayables" />
+        <result column="AMOUNT_PAID" jdbcType="DECIMAL" property="actualPayment" />
+        <result column="B1_SUPPLEMENTAL_AMOUNT" jdbcType="DECIMAL" property="supplementPrice" />
+        <result column="PURCHASE_CONTRACT_ID" jdbcType="DECIMAL" property="contractId" />
+        <result column="PURCHASE_CONTRACT_CODE" jdbcType="VARCHAR" property="outContractCode" />
+        <result column="PRODUCT_LINE_ID" jdbcType="DECIMAL" property="productLineId" />
+        <result column="PRODUCT_LINE_NAME" jdbcType="DECIMAL" property="productLineName" />
+        <result column="SUPPLIER_ID" jdbcType="DECIMAL" property="supplierId" />
+        <result column="SUPPLIER_NAME" jdbcType="VARCHAR" property="supplierName" />
+        <result column="DEPARTMENT_ID" jdbcType="DECIMAL" property="departmentId" />
+        <result column="DEPARTMENT_NAME" jdbcType="DECIMAL" property="departmentName" />
+        <result column="LAST_MODIFIED_TIME" jdbcType="TIMESTAMP" property="lastModifiedTime" />
+        <result column="ORDER_DATE" jdbcType="TIMESTAMP" property="orderTime" />
+        <result column="TRADER_ID" jdbcType="DECIMAL" property="traderId" />
+        <result column="TRADER_NAME" jdbcType="DECIMAL" property="traderName" />
+    </resultMap>
+
+    <select id="getPurchaseList"  resultMap="purchaseList">
+        SELECT t.*
+        FROM (SELECT
+        TP.PKID,
+        O.INVESTOR_ID SUPPLIER_ID,
+        (NVL(TP.ACTUAL_TOTAL_PAYABLES_AMOUNT, 0) -
+        NVL(TP.ACTUAL_TOTAL_PAYMENT_AMOUNT, 0)) B1_SUPPLEMENTAL_AMOUNT,
+        TP.ACTUAL_TOTAL_PAYMENT_AMOUNT AMOUNT_PAID,
+        TP.ACTUAL_TOTAL_PAYABLES_AMOUNT ACTUAL_B1_TOTAL_AMOUNT,
+        TP.PURCHASE_CODE ORDER_CODE,
+        O.TRADER_ID,
+        O.ORDER_DATE,
+        O.LAST_MODIFIED_TIME,
+        10 AS BILL_TYPE,
+        TP.SUPPLIER_NAME,
+        TP.PRODUCT_LINE_ID,
+        TP.PRODUCT_LINE_NAME,
+        TP.DEPARTMENT_ID,
+        TP.PURCHASE_CONTRACT_ID,
+        TP.PURCHASE_CONTRACT_CODE,
+        TP.DEPARTMENT_NAME,
+        TP.TRADER_NAME,
+        O.ORG_TITLE_ID
+        FROM TSALES_ORDER O
+        INNER JOIN TPURCHASE TP
+        ON O.PKID = TP.RELATION_BILL_ID
+        AND TP.RELATION_BILL_TYPE = 10
+        WHERE O.DELIVERY_STATUS = 30
+        AND TP.PURCHASE_SETTLE_STATUS = 10
+        AND O.ORDER_TYPE IN (12, 13)
+        AND O.VALID = 'T'
+        AND TP.VALID = 'T'
+        UNION ALL
+        SELECT
+        TPA.PKID,
+        TPU.SUPPLIER_INVESTOR_ID SUPPLIER_ID,
+        B.B1_SUPPLEMENTAL_AMOUNT,
+        0 AS AMOUNT_PAID,
+        B.B1_SUPPLEMENTAL_AMOUNT AS ACTUAL_B1_TOTAL_AMOUNT,
+        TPA.PURCHASE_ADJUST_CODE ORDER_CODE,
+        TPA.ADDED_BY AS TRADER_ID,
+        TPA.ADDED_TIME AS ORDER_DATE,
+        TPA.LAST_MODIFIED_TIME,
+        TPA.ADJUST_TYPE AS BILL_TYPE,
+        TPU.SUPPLIER_NAME,
+        TPU.PRODUCT_LINE_ID,
+        TPU.PRODUCT_LINE_NAME,
+        TPU.DEPARTMENT_ID,
+        TPU.PURCHASE_CONTRACT_ID,
+        TPU.PURCHASE_CONTRACT_CODE,
+        TPU.DEPARTMENT_NAME,
+        TPU.TRADER_NAME,
+        TPU.ORG_TITLE_ID
+        FROM TPURCHASE_ADJUST TPA
+        LEFT JOIN (SELECT SUM(NVL(TPR.RETURN_ACTUAL_AMOUNT, 0)) * -1 AS B1_SUPPLEMENTAL_AMOUNT,
+        TPR.PURCHASE_ADJUST_ID
+        FROM TPURCHASE_ITEM TPR
+        WHERE TPR.VALID = 'T'
+        GROUP BY TPR.PURCHASE_ADJUST_ID) B
+        ON B.PURCHASE_ADJUST_ID = TPA.PKID
+        INNER JOIN TPURCHASE TPU
+        ON TPA.PURCHASE_ID = TPU.PKID
+        WHERE TPA.ADJUST_TYPE IN (40, 70)
+        AND TPA.ADJUST_AUDIT_STATUS = 30
+        AND TPA.RETURN_B1_SUPPLEMENTAL_STATUS = 10
+        AND TPA.VALID = 'T') t
+        WHERE t.B1_SUPPLEMENTAL_AMOUNT !=0
+        <if test="orgTitleId!=null">
+            AND t.ORG_TITLE_ID=#{orgTitleId,jdbcType=DECIMAL}
+        </if>
+        <if test="null!=billType">
+            AND t.BILL_TYPE=#{billType,jdbcType=DECIMAL}
+        </if>
+        <if test="billCode!=null">
+            AND t.ORDER_CODE LIKE '%'||#{billCode,jdbcType=VARCHAR}||'%'
+        </if>
+        <if test="null!=supplierName">
+            AND t.SUPPLIER_NAME LIKE '%'||#{supplierName,jdbcType=VARCHAR}||'%'
+        </if>
+        <if test="null!=productLineId">
+            AND t.PRODUCT_LINE_ID=#{productLineId,jdbcType=DECIMAL}
+        </if>
+        <if test="null!=department">
+            AND t.DEPARTMENT_NAME LIKE '%'||#{department,jdbcType=VARCHAR}||'%'
+        </if>
+        <if test="null!=startDate">
+            <![CDATA[  AND t.ORDER_DATE >= #{startDate,jdbcType=TIMESTAMP} ]]>
+        </if>
+        <if test="null!=endDate">
+            <![CDATA[  AND t.ORDER_DATE <= #{endDate,jdbcType=TIMESTAMP} ]]>
+        </if>
+        <if test="null!=pkIds">
+            AND t.PKID in
+            <foreach collection="pkIds" close=")" index="index" open="(" item="pkId" separator=",">
+                #{pkId}
+            </foreach>
+        </if>
+        ORDER BY t.SUPPLIER_ID, t.ORDER_DATE, t.BILL_TYPE, t.PKID
+    </select>
+</mapper>
