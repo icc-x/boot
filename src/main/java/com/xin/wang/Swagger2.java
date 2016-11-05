@@ -33,7 +33,7 @@ public class Swagger2 {
                 .description("这是副标题")
                 .termsOfServiceUrl("http://localhost:8080/demo/index")
                 .contact("xin.wang")
-                .version("1.0")
+                .version("0.1")
                 .build();
     }
 }
